@@ -155,6 +155,31 @@ The Python server does all the calculation. The JavaScript in the browser only d
 - **Rate limit**: one person is blocked for a while after more than 150 requests in 10 seconds.
 - **Local only by default**: other devices cannot connect unless you add the `--lan` option.
 
+## Checked against real data
+
+To see whether the site's verdicts match reality, we looked up our example passwords in [Pwned Passwords](https://haveibeenpwned.com/Passwords), a public collection of passwords from real data breaches. The lookup uses its range API, which receives only the first 5 characters of a hash. Counts are as of 26 November 2026.
+
+| Password | Times seen in real breaches | Verdict on this site |
+|---|---|---|
+| `password` | 52,373,976 | Cracked instantly |
+| `P@ssw0rd` | 6,421,554 | Cracked instantly |
+| `qwer1234` | 3,436,774 | Cracked instantly |
+| `qwer1234!` | 48,084 | Cracked instantly |
+| `tkfkdgo` (사랑해, "I love you") | 174,486 | Cracked instantly |
+| `dkssud` (안녕, "hello") | 24,239 | Cracked instantly |
+| `qlalfqjsgh` (비밀번호, "password") | 15,976 | Cracked instantly |
+| `dkssud12!` | 3,824 | Cracked instantly |
+| `kT7#mq2xLp` (random) | 0 | Strong |
+| `hG7#kq9!Zp2x` (random) | 0 | Strong |
+
+What this shows:
+
+- `qwer1234!` passes the usual rules (8 or more characters, a number, a symbol) and has still been leaked more than 48,000 times.
+- Korean words typed on an English keyboard appear tens of thousands of times. The Korean word list we added covers a real habit, not a guess.
+- The random passwords do not appear at all.
+
+**Where the site is too generous.** The fastest attack speed on this site is 10 billion guesses per second, the figure `zxcvbn` uses for a fast hash. Current hardware is faster: a single RTX 4090 computes about 150 billion MD5 hashes per second in the hashcat benchmark. Weak verdicts are not affected, since those passwords only fall sooner. Times shown for strong passwords are too long against such hardware. By our calculation, the "189 years" for `kT7#mq2xLp` becomes about 13 years on one such card and about 1 year on twelve. This is why the site still recommends 12 or more characters for a password it already rates as strong.
+
 ## Tests
 
 The checking, time and generating functions and the two API addresses are covered by 52 automated tests in `tests/test_app.py`. They run on every push on Windows, macOS and Linux, with Python versions from 3.9 to 3.12.
@@ -229,8 +254,8 @@ Problems we ran into, and how we solved them.
 
 **Limitations**
 
-- The times are estimates, not measurements. The fastest attack speed we use (10 billion guesses per second) is the figure `zxcvbn` uses for a fast hash; a large GPU cluster can be faster.
-- The site does not check real breach data. It only knows the lists built into `zxcvbn` (about 30,000 common passwords).
+- The times are estimates, not measurements. The fastest attack speed we use (10 billion guesses per second) is the figure `zxcvbn` uses for a fast hash. One modern graphics card is about 15 times faster against MD5, so times for strong passwords are too long (see "Checked against real data").
+- The site itself does not check real breach data. It only knows the lists built into `zxcvbn` (about 30,000 common passwords). We compared a few examples by hand, but a visitor's password is not looked up.
 - The Korean word list is small (28 entries). A Korean word that is not on the list is still treated as random letters.
 - Counting 2,350 possibilities for a Korean character is a rough figure.
 - `zxcvbn` reads at most 72 characters, so the rest of a longer password is treated as random.
@@ -260,6 +285,10 @@ Problems we ran into, and how we solved them.
 - Python `secrets` module documentation. https://docs.python.org/3/library/secrets.html
 - NIST Special Publication 800-63B, Digital Identity Guidelines (password length over composition rules). https://pages.nist.gov/800-63-3/sp800-63b.html
 - Flask documentation. https://flask.palletsprojects.com/
+- Have I Been Pwned, Pwned Passwords and its range API (source of the breach counts above). https://haveibeenpwned.com/Passwords
+- OpenBenchmarking.org, hashcat results for the RTX 4090 (source of the MD5 speed above). https://openbenchmarking.org/result/2310027-NE-RTX4090HA42&export=html
+- Hive Systems, "Are Your Passwords in the Green?", a yearly table of password cracking times. It assumes bcrypt and random passwords, so its numbers are not directly comparable with ours. https://www.hivesystems.com/blog/are-your-passwords-in-the-green-2025
+- Chae et al., "The Threat of Password Guessing Attacks Exploiting Linguistic Characteristics: A Case Study on the Korean Domains" (related research on Korean passwords). https://pure.korea.ac.kr/en/publications/the-threat-of-password-guessing-attacks-exploiting-linguistic-cha/
 
 <!--
 Sections to write yourself before using this as a portfolio (they are hidden on GitHub until you remove these comment marks):
