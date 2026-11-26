@@ -157,7 +157,7 @@ The Python server does all the calculation. The JavaScript in the browser only d
 
 ## Tests
 
-The checking, time and generating functions and the two API addresses are covered by 52 automated tests in `tests/test_app.py`. They run on every push on Windows, macOS and Linux, with Python 3.9 and 3.12.
+The checking, time and generating functions and the two API addresses are covered by 52 automated tests in `tests/test_app.py`. They run on every push on Windows, macOS and Linux, with Python versions from 3.9 to 3.12.
 
 ```
 pip install -r requirements-dev.txt
