@@ -236,6 +236,7 @@ What the tests check:
 | `requirements-dev.txt` | Packages needed to run the tests |
 | `.github/workflows/tests.yml` | Runs the tests automatically on GitHub |
 | `run.bat`, `run.sh` | Start scripts for Windows and for macOS / Linux |
+| `LICENSE` | License (MIT) |
 
 ## Built with
 
@@ -332,6 +333,14 @@ Sections to write yourself before using this as a portfolio (they are hidden on 
 ## Tools
 - State here how AI tools were used, following the rules of the school or company you apply to.
 -->
+
+## License
+
+This project is released under the [MIT License](LICENSE). Copyright belongs to Jang WonJoon and the Password Vault Keeper team.
+
+- Anyone may use, change and redistribute this code.
+- Every copy, and anything built from this code, must keep the copyright notice and permission notice from the `LICENSE` file.
+- Removing the copyright notice, or presenting this work as your own, breaks the license.
 
 ## Made by
 
