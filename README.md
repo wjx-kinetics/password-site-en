@@ -261,7 +261,7 @@ Problems we ran into, and how we solved them.
 
 **2. Korean passwords were rated too strong**
 
-- Problem: `dkssud12!` was given 41 days, although `dkssud` is the Korean word 안녕 ("hello") typed with the keyboard in English mode. This is a very common way to make a password in Korea.
+- Problem: `dkssud12!` was given about 4 days, although `dkssud` is the Korean word 안녕 ("hello") typed with the keyboard in English mode. This is a very common way to make a password in Korea.
 - Cause: the word lists in `zxcvbn` are English, so `dkssud` was counted as six random letters.
 - Fix: we added a list of common Korean words, both in Korean letters and as typed on an English keyboard, and pass it to `zxcvbn` as extra dictionary words. `dkssud12!` is now cracked in under a second.
 
