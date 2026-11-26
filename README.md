@@ -336,7 +336,7 @@ Sections to write yourself before using this as a portfolio (they are hidden on 
 
 ## License
 
-This project is released under the [MIT License](LICENSE). Copyright belongs to Jang WonJoon and the Password Vault Keeper team.
+This project is released under the [MIT License](LICENSE). Copyright belongs to Jang WonJoon.
 
 - Anyone may use, change and redistribute this code.
 - Every copy, and anything built from this code, must keep the copyright notice and permission notice from the `LICENSE` file.
