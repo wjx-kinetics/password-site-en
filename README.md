@@ -1,6 +1,6 @@
 # Password Vault Keeper
 
-[한국어 (Korean repository)](https://github.com/SLA3DP/password-site) | **English**
+[한국어 (Korean repository)](https://github.com/wjx-kinetics/password-site) | **English**
 
 A website that works out how long your current password would survive an attack, and then makes a safe one you can use instead. It is built with Python (Flask) and served over HTTPS.
 
@@ -11,7 +11,7 @@ A website that works out how long your current password would survive an attack,
 ## Presentation
 
 - [Presentation slides (PDF)](docs/presentation-en.pdf)
-- The Korean version is in the [Korean repository](https://github.com/SLA3DP/password-site).
+- The Korean version is in the [Korean repository](https://github.com/wjx-kinetics/password-site).
 
 ## Why we made it
 
@@ -39,7 +39,7 @@ You need Python 3.9 or later. If you do not have it, install it from [python.org
 Press the green **Code** button at the top of this page, choose **Download ZIP**, and unzip it. If you use git:
 
 ```
-git clone https://github.com/SLA3DP/password-site-en.git
+git clone https://github.com/wjx-kinetics/password-site-en.git
 ```
 
 ### 2. Run
@@ -178,4 +178,4 @@ The Python server does all the calculation. The JavaScript in the browser only d
 
 ## Made by
 
-Jang WonJoon ∙ Seoul Robotics High School · [github.com/SLA3DP](https://github.com/SLA3DP)
+Jang WonJoon ∙ Seoul Robotics High School · [github.com/wjx-kinetics](https://github.com/wjx-kinetics)
