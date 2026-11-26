@@ -1,0 +1,465 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>비밀번호 금고지기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: one narrow column. The crack-time clock (년·일·시간·분·초) is the single loud element; everything else stays quiet. */
+:root {
+  /* 흰색과 파란색 한 가지 모습으로 고정 (다크 모드에서도 같은 화면) */
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --sunken: #f2f4f6;
+  --fg: #191f28;
+  --muted: #6b7684;
+  --line: #e5e8eb;
+  --accent: #2f7df6;
+  --accent-soft: #e8f2ff;
+  --accent-fg: #ffffff;
+  --crit: #ef4452;
+  --warn: #e07b00;
+  --ok: #06a561;
+  --font-text: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --font-mono: "IBM Plex Mono", "SF Mono", Consolas, "D2Coding", monospace;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--font-text); font-size: 16px; line-height: 1.6; }
+.wrap {
+  max-width: 720px; margin: 0 auto; padding-block: 40px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 28px;
+}
+h1 { font-size: 2.1rem; line-height: 1.3; margin: 0; font-weight: 700; text-wrap: balance; letter-spacing: -0.03em; }
+h1 em { font-style: normal; color: var(--accent); }
+h2 { font-size: 1.3rem; margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+p { margin: 0; }
+.lede { color: var(--muted); margin-top: 8px; max-width: 34em; }
+.local {
+  display: flex; gap: 10px; align-items: flex-start; margin-top: 16px;
+  font-size: 0.875rem; font-weight: 500; color: var(--accent); background: var(--accent-soft); border-radius: 14px; padding: 12px 16px;
+}
+
+.panel { background: var(--surface); border-radius: 24px; padding: 28px; display: flex; flex-direction: column; gap: 22px; min-width: 0; box-shadow: 0 2px 12px rgba(25, 31, 40, 0.05); }
+@media (max-width: 480px) { .panel { padding: 22px 18px; border-radius: 20px; } h1 { font-size: 1.65rem; } }
+
+label.field { font-size: 0.8125rem; font-weight: 500; color: var(--muted); display: block; margin-bottom: 6px; }
+.inputrow { display: flex; gap: 8px; }
+.inputrow input {
+  flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 1.05rem; padding: 15px 16px;
+  background: var(--sunken); color: var(--fg); border: 2px solid transparent; border-radius: 14px; outline: none;
+}
+.inputrow input:focus { border-color: var(--accent); background: var(--surface); }
+button {
+  font-family: var(--font-text); font-size: 1rem; font-weight: 700; cursor: pointer;
+  padding: 14px 20px; border-radius: 14px; border: 0; background: var(--accent-soft); color: var(--accent);
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+button:hover { filter: brightness(0.97); }
+button:active { transform: scale(0.97); }
+button.primary { background: var(--accent); color: var(--accent-fg); }
+button.primary:hover { filter: brightness(0.93); }
+@media (prefers-reduced-motion: reduce) { button { transition: none; } button:active { transform: none; } }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* verdict + clock */
+.result { display: flex; flex-direction: column; gap: 14px; --sev: var(--crit); }
+.result[data-sev="warn"] { --sev: var(--warn); }
+.result[data-sev="ok"] { --sev: var(--ok); }
+.verdictrow { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.pill { font-size: 0.8125rem; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: var(--surface); background: var(--sev); }
+.sample { font-size: 0.8125rem; color: var(--muted); }
+.sample code { font-family: var(--font-mono); color: var(--fg); }
+.clock { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.cell { background: var(--sunken); border-radius: 16px; padding: 18px 4px 12px; text-align: center; }
+.cell b { display: block; font-family: var(--font-text); font-weight: 700; letter-spacing: -0.02em; font-size: clamp(1.5rem, 7vw, 2.6rem); line-height: 1; font-variant-numeric: tabular-nums; color: var(--sev); }
+.cell.zero b { color: var(--muted); opacity: 0.55; }
+.cell span { display: block; margin-top: 8px; font-size: 0.75rem; color: var(--muted); letter-spacing: 0.08em; }
+.clock.single { grid-template-columns: 1fr; }
+.clock.single .cell b { font-family: var(--font-text); font-weight: 700; font-size: clamp(1.5rem, 6.5vw, 2.3rem); padding: 6px 8px; overflow-wrap: anywhere; }
+.basis { font-size: 0.875rem; color: var(--muted); }
+.meter { height: 6px; background: var(--sunken); border-radius: 3px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--sev); transition: width 0.25s ease; }
+@media (prefers-reduced-motion: reduce) { .meter i { transition: none; } }
+
+.sub { font-size: 0.8125rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; margin-bottom: 8px; }
+ul.reasons { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; font-size: 0.9375rem; }
+ul.reasons li { padding-left: 18px; position: relative; overflow-wrap: anywhere; }
+ul.reasons li::before { content: ""; position: absolute; left: 2px; top: 0.62em; width: 7px; height: 7px; border-radius: 50%; background: var(--sev); }
+ul.reasons code { font-family: var(--font-mono); background: var(--sunken); padding: 1px 5px; border-radius: 3px; }
+
+.tablebox { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 0.75rem; color: var(--muted); font-weight: 500; letter-spacing: 0.04em; }
+td.t { font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td small { display: block; color: var(--muted); font-size: 0.78rem; }
+tr:last-child td { border-bottom: 0; }
+
+/* generator */
+.out {
+  font-family: var(--font-mono); font-size: 1.25rem; font-weight: 500; line-height: 1.5; letter-spacing: 0.02em;
+  background: var(--accent-soft); border-radius: 16px; padding: 20px; word-break: break-all; user-select: all;
+}
+.out .d { color: var(--accent); }
+.out .s { color: var(--crit); }
+.actions { display: flex; gap: 8px; }
+.actions button { flex: 1; min-width: 0; }
+.actions button.primary { flex: 2; }
+.genstat { font-size: 0.9rem; color: var(--muted); }
+.genstat strong { color: var(--ok); }
+.opts { display: flex; flex-direction: column; gap: 14px; }
+.lenrow { display: flex; align-items: center; gap: 14px; }
+.lenrow input[type=range] { flex: 1; min-width: 0; accent-color: var(--accent); }
+.lenrow output { font-family: var(--font-mono); font-weight: 600; font-size: 1.1rem; min-width: 3.2em; text-align: right; font-variant-numeric: tabular-nums; }
+.checks { display: flex; flex-wrap: wrap; gap: 8px; }
+.checks label { position: relative; font-size: 0.9375rem; font-weight: 500; cursor: pointer; padding: 9px 16px; border-radius: 999px; background: var(--sunken); color: var(--muted); }
+.checks label:has(input:checked) { background: var(--accent); color: var(--accent-fg); }
+.checks label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.checks input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+
+.tips { font-size: 0.9rem; color: var(--muted); }
+.tips ul { margin: 8px 0 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: 4px; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>내 비밀번호,<br><em>얼마 만에</em> 뚫릴까?</h1>
+    <p class="lede">지금 쓰는 비밀번호를 넣으면 공격자가 알아내는 데 걸리는 시간을 계산하고, 대신 쓸 안전한 비밀번호를 만들어 드립니다.</p>
+    <p class="local">입력한 비밀번호는 이 브라우저 안에서만 계산됩니다. 서버로 보내지 않고 저장하지도 않습니다.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-check">
+    <h2 id="h-check">비밀번호 진단</h2>
+    <div>
+      <label class="field" for="pw">확인할 비밀번호</label>
+      <div class="inputrow">
+        <input id="pw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="여기에 입력">
+        <button id="toggle" type="button" aria-pressed="false">보기</button>
+      </div>
+    </div>
+
+    <div class="result" id="result" data-sev="crit" aria-live="polite">
+      <div class="verdictrow">
+        <span class="pill" id="pill"></span>
+        <span class="sample" id="sample"></span>
+      </div>
+      <div class="clock" id="clock"></div>
+      <p class="basis">유출된 DB를 GPU로 초당 100억 번 대입하는 공격 기준</p>
+      <div class="meter" aria-hidden="true"><i id="bar"></i></div>
+    </div>
+
+    <div>
+      <div class="sub">왜 이런 결과가 나왔나</div>
+      <ul class="reasons" id="reasons"></ul>
+    </div>
+
+    <div>
+      <div class="sub">공격 방식별 소요 시간</div>
+      <div class="tablebox">
+        <table>
+          <thead><tr><th>공격 방식</th><th>속도</th><th>걸리는 시간</th></tr></thead>
+          <tbody id="scen"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-gen">
+    <h2 id="h-gen">새 비밀번호 만들기</h2>
+    <div class="out" id="out" aria-label="생성된 비밀번호"></div>
+    <p class="genstat" id="genstat"></p>
+    <div class="actions">
+      <button class="primary" id="copy" type="button">복사</button>
+      <button id="regen" type="button">다시 만들기</button>
+    </div>
+    <div class="opts">
+      <div>
+        <label class="field" for="len">길이</label>
+        <div class="lenrow">
+          <input id="len" type="range" min="8" max="64" value="20">
+          <output id="lenout" for="len">20자</output>
+        </div>
+      </div>
+      <div class="checks">
+        <label><input id="c-lower" type="checkbox" checked> 소문자</label>
+        <label><input id="c-upper" type="checkbox" checked> 대문자</label>
+        <label><input id="c-digit" type="checkbox" checked> 숫자</label>
+        <label><input id="c-sym" type="checkbox" checked> 특수문자</label>
+        <label><input id="c-amb" type="checkbox" checked> 헷갈리는 글자 빼기 (0 O l 1 I)</label>
+      </div>
+    </div>
+  </section>
+
+  <section class="tips">
+    <strong>참고</strong>
+    <ul>
+      <li>시간은 추정치입니다. 실제 공격 속도는 사이트가 비밀번호를 어떻게 저장하는지에 따라 크게 달라집니다.</li>
+      <li>아무리 강한 비밀번호도 여러 사이트에 같이 쓰면 한 곳이 털릴 때 모두 털립니다. 사이트마다 다르게 쓰고 비밀번호 관리자에 저장하세요.</li>
+      <li>가능한 곳은 2단계 인증을 함께 켜 두세요.</li>
+    </ul>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/zxcvbn/4.4.2/zxcvbn.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var YEAR = 31557600;
+  var FAST = 1e10;
+  var SAMPLE = 'qwer1234';
+
+  // 한글 단어를 영문 자판(두벌식)으로 친 흔한 비밀번호 재료
+  var KO_TYPED = ['dkssud', 'dkssudgktpdy', 'tkfkd', 'tkfkdgo', 'tkfkdgody', 'qlalfqjsgh', 'qlqjs', 'gksrmf',
+    'eogksalsrnr', 'dnflskfk', 'godqhr', 'ghkdlxld', 'djaak', 'rkwhr', 'clsrn',
+    '안녕하세요', '안녕', '사랑해요', '사랑해', '사랑', '비밀번호', '비번', '대한민국', '우리나라', '행복', '화이팅', '가족', '친구'];
+  var COMMON = ['123456', 'password', '12345678', 'qwerty', '123456789', '111111', 'qwer1234', '1q2w3e4r', 'asdf1234',
+    'abc123', 'iloveyou', 'admin', '1234', '12345', '000000', 'a123456', 'password1', 'zxcvbnm'].concat(KO_TYPED);
+
+  var SCENARIOS = [
+    { name: '로그인 창에 직접 대입', note: '시도 횟수 제한이 있는 사이트', speed: '시간당 100회', rate: 100 / 3600 },
+    { name: '로그인 창에 직접 대입', note: '횟수 제한이 없는 사이트', speed: '초당 10회', rate: 10 },
+    { name: '유출된 DB 오프라인 공격', note: '느린 해시(bcrypt 등)로 저장', speed: '초당 1만 회', rate: 1e4 },
+    { name: '유출된 DB 오프라인 공격', note: '빠른 해시(MD5, SHA-1)로 저장', speed: '초당 100억 회', rate: FAST }
+  ];
+
+  function cardinality(s) {
+    var c = 0;
+    if (/[a-z]/.test(s)) c += 26;
+    if (/[A-Z]/.test(s)) c += 26;
+    if (/[0-9]/.test(s)) c += 10;
+    if (/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(s)) c += 2350;
+    if (/[^A-Za-z0-9가-힣ㄱ-ㅎㅏ-ㅣ]/.test(s)) c += 33;
+    return c || 10;
+  }
+  function fact(n) { var f = 1; for (var i = 2; i <= n; i++) f *= i; return f; }
+
+  function analyze(pw) {
+    var card = cardinality(pw);
+    var reasons = [];
+    var guesses;
+    if (typeof zxcvbn === 'function') {
+      var r = zxcvbn(pw.slice(0, 100), KO_TYPED);
+      // zxcvbn은 무작위 구간을 글자당 10가지로만 계산하므로, 실제 문자 종류 수로 다시 계산한다.
+      var prod = 1;
+      r.sequence.forEach(function (m) {
+        prod *= (m.pattern === 'bruteforce') ? Math.pow(card, m.token.length) : m.guesses;
+        var why = explain(m);
+        if (why) reasons.push(why);
+      });
+      guesses = Math.max(r.guesses, prod * fact(r.sequence.length));
+    } else {
+      var low = pw.toLowerCase(), hit = '';
+      COMMON.forEach(function (w) { if (w.length > hit.length && low.indexOf(w) >= 0) hit = w; });
+      guesses = hit ? Math.max(1, 100 * Math.pow(card, pw.length - hit.length)) : Math.pow(card, pw.length);
+      if (hit === low) guesses = 1;
+      if (hit) reasons.push(['흔한 비밀번호나 단어가 들어 있습니다', hit]);
+      reasons.push(['패턴 분석 도구를 불러오지 못해 글자 종류와 길이만으로 계산했습니다', null]);
+    }
+    if (pw.length < 12) reasons.push(['길이가 ' + pw.length + '자로 짧습니다. 12자 이상을 권장합니다', null]);
+    return { guesses: guesses, reasons: reasons };
+  }
+
+  function explain(m) {
+    var extra = '';
+    if (m.l33t) extra += ' · a→@ 같은 글자 바꿔치기는 공격자도 기본으로 시도합니다';
+    if (m.reversed) extra += ' · 뒤집어 써도 마찬가지입니다';
+    switch (m.pattern) {
+      case 'dictionary':
+        if (m.dictionary_name === 'passwords') return ['유출 목록에 자주 나오는 비밀번호 (' + m.rank + '위)' + extra, m.token];
+        if (m.dictionary_name === 'user_inputs') return ['흔한 한국어 단어 (한글 그대로 또는 영문 자판으로 친 것)' + extra, m.token];
+        if (/names/.test(m.dictionary_name)) return ['흔한 이름' + extra, m.token];
+        return ['사전에 있는 영어 단어' + extra, m.token];
+      case 'spatial': return ['키보드에서 나란히 붙은 키 배열', m.token];
+      case 'repeat': return ['같은 글자나 묶음의 반복', m.token];
+      case 'sequence': return ['순서대로 이어지는 글자나 숫자', m.token];
+      case 'regex': return ['연도로 보이는 숫자', m.token];
+      case 'date': return ['날짜로 보이는 숫자', m.token];
+      default: return null;
+    }
+  }
+
+  function bigYears(y) {
+    if (!isFinite(y) || y >= 1e24) return '우주 나이의 수조 배 이상';
+    var units = [[1e20, '해'], [1e16, '경'], [1e12, '조'], [1e8, '억'], [1e4, '만']];
+    for (var i = 0; i < units.length; i++) {
+      if (y >= units[i][0]) {
+        var v = y / units[i][0];
+        return '약 ' + (v < 100 ? (Math.round(v * 10) / 10) : Math.round(v).toLocaleString('ko-KR')) + units[i][1] + ' 년';
+      }
+    }
+    return Math.round(y).toLocaleString('ko-KR') + '년';
+  }
+  function parts(s) {
+    var y = Math.floor(s / YEAR); s -= y * YEAR;
+    var d = Math.floor(s / 86400); s -= d * 86400;
+    var h = Math.floor(s / 3600); s -= h * 3600;
+    var m = Math.floor(s / 60); s -= m * 60;
+    return [y, d, h, m, Math.floor(s)];
+  }
+  function timeText(s) {
+    if (s < 1) return '1초 미만';
+    if (!isFinite(s) || s / YEAR >= 10000) return bigYears(s / YEAR);
+    var p = parts(s), names = ['년', '일', '시간', '분', '초'], out = [];
+    for (var i = 0; i < 5 && out.length < 2; i++) {
+      if (p[i] > 0 || out.length) { if (p[i] > 0) out.push(p[i].toLocaleString('ko-KR') + names[i]); else if (out.length) break; }
+    }
+    return out.join(' ');
+  }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function renderClock(s) {
+    var clock = $('clock');
+    clock.textContent = '';
+    if (s < 1 || !isFinite(s) || s / YEAR >= 10000) {
+      clock.className = 'clock single';
+      var c = el('div', 'cell');
+      c.appendChild(el('b', null, s < 1 ? '1초도 안 걸림' : bigYears(s / YEAR)));
+      clock.appendChild(c);
+      return;
+    }
+    clock.className = 'clock';
+    var p = parts(s), names = ['년', '일', '시간', '분', '초'], leading = true;
+    p.forEach(function (v, i) {
+      if (v > 0) leading = false;
+      var c = el('div', 'cell' + (leading ? ' zero' : ''));
+      c.appendChild(el('b', null, i >= 2 ? String(v).padStart(2, '0') : String(v)));
+      c.appendChild(el('span', null, names[i]));
+      clock.appendChild(c);
+    });
+  }
+
+  function verdict(s) {
+    if (s < 60) return ['crit', '즉시 뚫림'];
+    if (s < 86400) return ['crit', '매우 약함'];
+    if (s < YEAR) return ['warn', '약함'];
+    if (s < YEAR * 100) return ['warn', '보통'];
+    return ['ok', '강함'];
+  }
+
+  function render() {
+    var typed = $('pw').value;
+    var pw = typed || SAMPLE;
+    var a = analyze(pw);
+    var secs = a.guesses / FAST;
+    var v = verdict(secs);
+    $('result').dataset.sev = v[0];
+    $('pill').textContent = v[1];
+    var sample = $('sample');
+    sample.textContent = '';
+    if (!typed) {
+      sample.appendChild(document.createTextNode('예시 '));
+      sample.appendChild(el('code', null, SAMPLE));
+      sample.appendChild(document.createTextNode(' 의 결과입니다. 위에 직접 입력해 보세요.'));
+    }
+    renderClock(secs);
+    $('bar').style.width = Math.max(3, Math.min(100, Math.log10(a.guesses) / 24 * 100)) + '%';
+
+    var ul = $('reasons');
+    ul.textContent = '';
+    ul.parentNode.style.setProperty('--sev', 'var(--' + v[0] + ')');
+    if (!a.reasons.length) a.reasons.push(['알려진 단어나 패턴이 발견되지 않았습니다', null]);
+    a.reasons.forEach(function (r) {
+      var li = el('li', null, r[0]);
+      if (r[1]) { li.appendChild(document.createTextNode(': ')); li.appendChild(el('code', null, r[1])); }
+      ul.appendChild(li);
+    });
+
+    var tb = $('scen');
+    tb.textContent = '';
+    SCENARIOS.forEach(function (sc) {
+      var tr = el('tr');
+      var td = el('td', null, sc.name);
+      td.appendChild(el('small', null, sc.note));
+      tr.appendChild(td);
+      tr.appendChild(el('td', null, sc.speed));
+      tr.appendChild(el('td', 't', timeText(a.guesses / sc.rate)));
+      tb.appendChild(tr);
+    });
+  }
+
+  // ---------- 생성기 ----------
+  var SETS = {
+    lower: 'abcdefghijklmnopqrstuvwxyz',
+    upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
+    digit: '0123456789',
+    sym: '!@#$%^&*()-_=+[]{};:,.?/~'
+  };
+  var AMBIGUOUS = /[0OoIl1|]/g;
+  var current = '';
+
+  function randInt(n) {
+    var limit = Math.floor(4294967296 / n) * n, buf = new Uint32Array(1);
+    do { crypto.getRandomValues(buf); } while (buf[0] >= limit);
+    return buf[0] % n;
+  }
+
+  function generate() {
+    var keys = ['lower', 'upper', 'digit', 'sym'].filter(function (k) { return $('c-' + k).checked; });
+    if (!keys.length) { $('c-lower').checked = true; keys = ['lower']; }
+    var noAmb = $('c-amb').checked;
+    var groups = keys.map(function (k) { return noAmb ? SETS[k].replace(AMBIGUOUS, '') : SETS[k]; });
+    var pool = groups.join('');
+    var len = +$('len').value;
+    var pw, ok;
+    do {
+      pw = '';
+      for (var i = 0; i < len; i++) pw += pool[randInt(pool.length)];
+      ok = groups.every(function (g) { for (var j = 0; j < pw.length; j++) if (g.indexOf(pw[j]) >= 0) return true; return false; });
+    } while (!ok);
+    current = pw;
+
+    var out = $('out');
+    out.textContent = '';
+    for (var k = 0; k < pw.length; k++) {
+      var ch = pw[k];
+      out.appendChild(el('span', /[0-9]/.test(ch) ? 'd' : (/[A-Za-z]/.test(ch) ? null : 's'), ch));
+    }
+    var guesses = Math.pow(pool.length, len);
+    var bits = Math.round(len * Math.log2(pool.length));
+    var stat = $('genstat');
+    stat.textContent = '';
+    stat.appendChild(document.createTextNode('같은 GPU 공격으로 '));
+    stat.appendChild(el('strong', null, timeText(guesses / FAST)));
+    stat.appendChild(document.createTextNode(' · 무작위성 ' + bits + '비트 · 문자 ' + pool.length + '종'));
+    $('lenout').textContent = len + '자';
+  }
+
+  function copy() {
+    var btn = $('copy');
+    var done = function () { btn.textContent = '복사됨'; setTimeout(function () { btn.textContent = '복사'; }, 1500); };
+    var fallback = function () {
+      var range = document.createRange();
+      range.selectNodeContents($('out'));
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      btn.textContent = '선택됨 · Ctrl/⌘+C';
+      setTimeout(function () { btn.textContent = '복사'; }, 2500);
+    };
+    try { navigator.clipboard.writeText(current).then(done, fallback); } catch (e) { fallback(); }
+  }
+
+  $('pw').addEventListener('input', render);
+  $('toggle').addEventListener('click', function () {
+    var show = $('pw').type === 'password';
+    $('pw').type = show ? 'text' : 'password';
+    this.textContent = show ? '숨기기' : '보기';
+    this.setAttribute('aria-pressed', String(show));
+  });
+  $('regen').addEventListener('click', generate);
+  $('copy').addEventListener('click', copy);
+  ['len', 'c-lower', 'c-upper', 'c-digit', 'c-sym', 'c-amb'].forEach(function (id) { $(id).addEventListener('input', generate); });
+
+  render();
+  generate();
+})();
+</script>

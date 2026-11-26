@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>비밀번호 금고지기</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 0 1 6 0v3H9Zm3 3.5a1.5 1.5 0 0 1 1 2.6V18h-2v-1.9a1.5 1.5 0 0 1 1-2.6Z"/></svg>
+      <span>비밀번호 금고지기</span>
+    </div>
+    <h1>내 비밀번호,<br><em>얼마 만에</em> 뚫릴까요?</h1>
+    <p class="lede">지금 쓰는 비밀번호가 버티는 시간을 계산하고, 대신 쓸 안전한 비밀번호를 만들어 드려요.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="h-check">
+    <div class="panelhead">
+      <h2 id="h-check">비밀번호 진단</h2>
+      <p>입력하는 즉시 결과가 바뀌어요.</p>
+    </div>
+
+    <div class="field">
+      <label for="pw">확인할 비밀번호</label>
+      <div class="inputbox">
+        <input id="pw" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="비밀번호를 입력하세요" maxlength="128">
+        <button id="toggle" class="ghost" type="button" aria-pressed="false">보기</button>
+      </div>
+    </div>
+
+    <div class="result" id="result" data-level="crit" aria-live="polite">
+      <div class="verdictrow">
+        <span class="pill" id="pill">계산 중</span>
+        <span class="sample" id="sample"></span>
+      </div>
+      <div class="clock single" id="clock"><div class="cell"><b>&nbsp;</b></div></div>
+      <div class="meter" aria-hidden="true"><i id="bar"></i></div>
+      <p class="basis">유출된 DB를 GPU로 초당 100억 번 대입하는 공격 기준</p>
+    </div>
+
+    <div>
+      <h3>왜 이런 결과가 나왔나요</h3>
+      <ul class="reasons" id="reasons"></ul>
+    </div>
+
+    <div>
+      <h3>공격 방식별 걸리는 시간</h3>
+      <ul class="rows" id="scen"></ul>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-gen">
+    <div class="panelhead">
+      <h2 id="h-gen">새 비밀번호 만들기</h2>
+      <p>파이썬의 암호학적 난수(secrets)로 만들어요.</p>
+    </div>
+
+    <div class="out" id="out" aria-label="생성된 비밀번호">&nbsp;</div>
+    <p class="genstat" id="genstat">&nbsp;</p>
+
+    <div class="actions">
+      <button class="primary" id="copy" type="button">복사하기</button>
+      <button id="regen" type="button">다시 만들기</button>
+    </div>
+
+    <div class="field">
+      <div class="lenhead">
+        <label for="len">길이</label>
+        <output id="lenout" for="len">20자</output>
+      </div>
+      <input id="len" type="range" min="8" max="64" value="20">
+    </div>
+
+    <div class="chips">
+      <label><input id="c-lower" type="checkbox" checked><span>소문자</span></label>
+      <label><input id="c-upper" type="checkbox" checked><span>대문자</span></label>
+      <label><input id="c-digit" type="checkbox" checked><span>숫자</span></label>
+      <label><input id="c-symbol" type="checkbox" checked><span>특수문자</span></label>
+      <label><input id="c-amb" type="checkbox" checked><span>헷갈리는 글자 빼기 (0 O l 1 I)</span></label>
+    </div>
+  </section>
+
+  <section class="notes">
+    <h3>알아두세요</h3>
+    <ul>
+      <li>입력한 비밀번호는 이 사이트를 실행 중인 파이썬 서버에 HTTPS로 암호화되어 전달되고, 계산이 끝나면 바로 버려져요. 저장하거나 기록하지 않아요.</li>
+      <li>시간은 추정치예요. 실제 공격 속도는 사이트가 비밀번호를 어떻게 저장하는지에 따라 크게 달라져요.</li>
+      <li>강한 비밀번호도 여러 사이트에 같이 쓰면 한 곳이 털릴 때 모두 털려요. 사이트마다 다르게 쓰고 2단계 인증을 켜 두세요.</li>
+    </ul>
+    <p class="credit">
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.56 9.56 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2Z"/></svg>
+      <span>만든 사람 <b>WONJOON ∙ Seoul Robotics High School</b></span>
+      <a href="https://github.com/SLA3DP" target="_blank" rel="noopener noreferrer">github.com/SLA3DP</a>
+    </p>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
