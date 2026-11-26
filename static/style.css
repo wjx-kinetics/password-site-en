@@ -89,11 +89,11 @@ button.ghost:hover { background: var(--accent-soft); }
 .sample { font-size: 0.8125rem; color: var(--body); }
 .sample code { font-family: var(--mono); font-weight: 600; color: var(--fg); }
 
-.clock { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.clock { display: grid; grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr)); gap: 8px; }  /* years can have 4 digits */
 .cell { background: var(--surface); border-radius: 16px; padding: 18px 2px 12px; text-align: center; }
 .cell b {
   display: block; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: var(--sev);
-  font-size: clamp(1.5rem, 7.2vw, 2.5rem); font-variant-numeric: tabular-nums;
+  font-size: clamp(1.15rem, 5.6vw, 2.5rem); font-variant-numeric: tabular-nums;
 }
 .cell.zero b { color: #c9cfd6; }
 .cell span { display: block; margin-top: 9px; font-size: 0.75rem; font-weight: 500; color: var(--muted); }

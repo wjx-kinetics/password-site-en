@@ -117,9 +117,9 @@ The same password lasts very differently depending on the attack. The large cloc
 | Guessing at a login page (rate-limited) | 100 per hour |
 | Guessing at a login page (no limit) | 10 per second |
 | Leaked database, slow hash (bcrypt) | 10,000 per second |
-| Leaked database, fast hash (MD5, SHA-1) | 10 billion per second |
+| Leaked database, fast hash (MD5, SHA-1) | 100 billion per second |
 
-**Verdicts** (at 10 billion guesses per second)
+**Verdicts** (at 100 billion guesses per second)
 
 | Time to crack | Verdict |
 |---|---|
@@ -169,8 +169,9 @@ To see whether the site's verdicts match reality, we looked up our example passw
 | `dkssud` (안녕, "hello") | 24,239 | Cracked instantly |
 | `qlalfqjsgh` (비밀번호, "password") | 15,976 | Cracked instantly |
 | `dkssud12!` | 3,824 | Cracked instantly |
-| `kT7#mq2xLp` (random) | 0 | Strong |
-| `hG7#kq9!Zp2x` (random) | 0 | Strong |
+| `kT7#mq2xLp` (random, 10 characters) | 0 | Fair |
+| `kT7#mq2xLp9` (random, 11 characters) | 0 | Strong |
+| `hG7#kq9!Zp2x` (random, 12 characters) | 0 | Strong |
 
 What this shows:
 
@@ -178,7 +179,31 @@ What this shows:
 - Korean words typed on an English keyboard appear tens of thousands of times. The Korean word list we added covers a real habit, not a guess.
 - The random passwords do not appear at all.
 
-**Where the site is too generous.** The fastest attack speed on this site is 10 billion guesses per second, the figure `zxcvbn` uses for a fast hash. Current hardware is faster: a single RTX 4090 computes about 150 billion MD5 hashes per second in the hashcat benchmark. Weak verdicts are not affected, since those passwords only fall sooner. Times shown for strong passwords are too long against such hardware. By our calculation, the "189 years" for `kT7#mq2xLp` becomes about 13 years on one such card and about 1 year on twelve. This is why the site still recommends 12 or more characters for a password it already rates as strong.
+## How we chose the attack speed
+
+The first version used 10 billion guesses per second for a fast hash, the figure `zxcvbn` assumes. We checked that figure against speeds published by people who crack passwords professionally, measured with hashcat, the standard tool for this work.
+
+| Published measurement | MD5 | SHA-1 |
+|---|---|---|
+| 25-GPU cluster shown by Jeremi Gosney at the Passwords^12 conference (2012) | 180 billion/s | 63 billion/s |
+| One RTX 3090, hashcat benchmark (2020) | 65.1 billion/s | 22.8 billion/s |
+| One RTX 4090, hashcat benchmark (2022) | 164.1 billion/s | 50.6 billion/s |
+| One RTX 5090, hashcat benchmark (2025) | 220.6 billion/s | 70.2 billion/s |
+| **Average** | **157.4 billion/s** | **51.7 billion/s** |
+
+The average of all eight figures is 104.6 billion guesses per second. The site now uses **100 billion per second**. The old value was about ten times too low.
+
+What changed:
+
+- Weak passwords are not affected. They were already cracked instantly.
+- `kT7#mq2xLp` (10 random characters) went from 189 years, rated Strong, to 19 years, rated Fair.
+- One more random character (`kT7#mq2xLp9`) brings it back to 1,802 years. This is the clearest example we have that length matters most.
+
+What this number does not cover:
+
+- Three of the four measurements are a single graphics card. An attacker with ten cards is ten times faster.
+- Some hashes are faster still. NTLM, used by Windows, runs at 340 billion per second on one RTX 5090.
+- Slow hashes are far slower. bcrypt runs at 184,000 per second on an RTX 4090 at 32 iterations, which is about 5,750 per second at a more realistic 1,024 iterations (our calculation). The site's "slow hash" row uses 10,000 per second.
 
 ## Tests
 
@@ -230,9 +255,9 @@ Problems we ran into, and how we solved them.
 
 **1. Random passwords were rated far too weak**
 
-- Problem: `zxcvbn` on its own rates a 20-character random password at about 317 years, far less than its real strength.
+- Problem: `zxcvbn` on its own rates a 20-character random password at about 32 years, far less than its real strength.
 - Cause: `zxcvbn` counts each character of a random part as 10 possibilities, whatever characters are used. A password drawn from 81 different characters was treated as if it were made of digits.
-- Fix: for random parts we now use `character types ^ length` with the real number of character types, and keep the `zxcvbn` estimate for words and patterns. The same password is now shown as about 468 quintillion years. A test (`test_random_part_uses_real_character_count`) keeps this from breaking again.
+- Fix: for random parts we now use `character types ^ length` with the real number of character types, and keep the `zxcvbn` estimate for words and patterns. The same password is now shown as about 46.8 quintillion years. A test (`test_random_part_uses_real_character_count`) keeps this from breaking again.
 
 **2. Korean passwords were rated too strong**
 
@@ -250,11 +275,16 @@ Problems we ran into, and how we solved them.
 - The first version did every calculation in the browser. When we moved the calculation to Python, the password had to travel to the server, which is a real cost for a tool like this.
 - To limit that cost the server only listens on the local computer by default, stores and logs nothing, loads nothing from other sites, and limits the request rate. The README also tells visitors not to type a real password into a copy run by someone else.
 
+**5. The attack speed was ten times too low**
+
+- Problem: when we compared the site with published hashcat benchmarks, one modern graphics card turned out to be faster than the 10 billion guesses per second we had taken from `zxcvbn`.
+- Fix: we collected eight published measurements, averaged them, and changed the speed to 100 billion per second. One of our own "strong" examples dropped to Fair, so we replaced it in the screenshots and slides instead of keeping the better-looking number.
+
 ## Limitations and next steps
 
 **Limitations**
 
-- The times are estimates, not measurements. The fastest attack speed we use (10 billion guesses per second) is the figure `zxcvbn` uses for a fast hash. One modern graphics card is about 15 times faster against MD5, so times for strong passwords are too long (see "Checked against real data").
+- The times are estimates, not measurements. The fastest attack speed we use (100 billion guesses per second) is an average of published speeds, mostly for a single graphics card. A real attacker may have many cards (see "How we chose the attack speed").
 - The site itself does not check real breach data. It only knows the lists built into `zxcvbn` (about 30,000 common passwords). We compared a few examples by hand, but a visitor's password is not looked up.
 - The Korean word list is small (28 entries). A Korean word that is not on the list is still treated as random letters.
 - Counting 2,350 possibilities for a Korean character is a rough figure.
@@ -286,7 +316,8 @@ Problems we ran into, and how we solved them.
 - NIST Special Publication 800-63B, Digital Identity Guidelines (password length over composition rules). https://pages.nist.gov/800-63-3/sp800-63b.html
 - Flask documentation. https://flask.palletsprojects.com/
 - Have I Been Pwned, Pwned Passwords and its range API (source of the breach counts above). https://haveibeenpwned.com/Passwords
-- OpenBenchmarking.org, hashcat results for the RTX 4090 (source of the MD5 speed above). https://openbenchmarking.org/result/2310027-NE-RTX4090HA42&export=html
+- Chick3nman, hashcat benchmarks for the RTX 3090, RTX 4090 and RTX 5090 (source of the single-card speeds above). https://gist.github.com/Chick3nman/e4fcee00cb6d82874dace72106d73fef · https://gist.github.com/Chick3nman/32e662a5bb63bc4f51b847bb422222fd · https://gist.github.com/Chick3nman/09bac0775e6393468c2925c1e1363d5c
+- Infosecurity Magazine, "GPU cluster can crack any NTLM 8-character hashed password in 5.5 hours" (source of the 2012 cluster speeds). https://www.infosecurity-magazine.com/news/gpu-cluster-can-crack-any-ntlm-8-character-hashed
 - Hive Systems, "Are Your Passwords in the Green?", a yearly table of password cracking times. It assumes bcrypt and random passwords, so its numbers are not directly comparable with ours. https://www.hivesystems.com/blog/are-your-passwords-in-the-green-2025
 - Chae et al., "The Threat of Password Guessing Attacks Exploiting Linguistic Characteristics: A Case Study on the Korean Domains" (related research on Korean passwords). https://pure.korea.ac.kr/en/publications/the-threat-of-password-guessing-attacks-exploiting-linguistic-cha/
 

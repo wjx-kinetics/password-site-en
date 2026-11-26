@@ -27,7 +27,7 @@ BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 
 YEAR = 31_557_600          # 365.25 days in seconds
-FAST = 1e10                # leaked DB + fast hash + GPU: 10 billion guesses per second
+FAST = 1e11                # leaked DB + fast hash + GPU: 100 billion guesses per second (see README)
 SAMPLE = "qwer1234"
 MAX_LEN = 128
 
@@ -43,7 +43,7 @@ SCENARIOS = [
     ("Guessing at a login page", "Site limits the number of tries", "100 per hour", 100 / 3600),
     ("Guessing at a login page", "Site with no limit", "10 per second", 10.0),
     ("Leaked database, offline attack", "Stored with a slow hash (bcrypt)", "10,000 per second", 1e4),
-    ("Leaked database, offline attack", "Stored with a fast hash (MD5, SHA-1)", "10 billion per second", FAST),
+    ("Leaked database, offline attack", "Stored with a fast hash (MD5, SHA-1)", "100 billion per second", FAST),
 ]
 
 HANGUL = "가-힣ㄱ-ㅎㅏ-ㅣ"
