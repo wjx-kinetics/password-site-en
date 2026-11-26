@@ -4,3 +4,4 @@ __pycache__/
 *.pyc
 tunnel.log
 .DS_Store
+.pytest_cache/

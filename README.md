@@ -2,6 +2,8 @@
 
 [한국어 (Korean repository)](https://github.com/wjx-kinetics/password-site) | **English**
 
+[![tests](https://github.com/wjx-kinetics/password-site-en/actions/workflows/tests.yml/badge.svg)](https://github.com/wjx-kinetics/password-site-en/actions/workflows/tests.yml)
+
 A website that works out how long your current password would survive an attack, and then makes a safe one you can use instead. It is built with Python (Flask) and served over HTTPS.
 
 | Weak password | Strong password | Generating a password |
@@ -153,6 +155,24 @@ The Python server does all the calculation. The JavaScript in the browser only d
 - **Rate limit**: one person is blocked for a while after more than 150 requests in 10 seconds.
 - **Local only by default**: other devices cannot connect unless you add the `--lan` option.
 
+## Tests
+
+The checking, time and generating functions and the two API addresses are covered by 52 automated tests in `tests/test_app.py`. They run on every push on Windows, macOS and Linux, with Python 3.9 and 3.12.
+
+```
+pip install -r requirements-dev.txt
+pytest
+```
+
+What the tests check:
+
+- Common passwords (`password`, `qwer1234!`, `P@ssw0rd`) are cracked in under a minute.
+- Korean words typed on an English keyboard (`dkssud`, `tkfkdgo`) are recognized as Korean words.
+- A random password is rated strong, and a longer random password always takes longer.
+- The verdict changes exactly at 1 minute, 1 day, 1 year and 100 years.
+- A generated password has the requested length, contains every chosen kind of character, and never contains a look-alike character when that option is on.
+- The server never sends a strong password back in its reply, limits the length to 8–64, and blocks a client after 150 requests in 10 seconds.
+
 ## Files
 
 | File | Role |
@@ -162,6 +182,9 @@ The Python server does all the calculation. The JavaScript in the browser only d
 | `static/style.css` | Colors and shapes |
 | `static/app.js` | Sends requests to the server and shows the results |
 | `requirements.txt` | The Python packages it needs |
+| `tests/test_app.py` | Automated tests (run with `pytest`) |
+| `requirements-dev.txt` | Packages needed to run the tests |
+| `.github/workflows/tests.yml` | Runs the tests automatically on GitHub |
 | `run.bat`, `run.sh` | Start scripts for Windows and for macOS / Linux |
 
 ## Built with
@@ -175,6 +198,80 @@ The Python server does all the calculation. The JavaScript in the browser only d
 
 - The times are estimates. Real attack speed depends on how a site stores passwords and on the attacker's hardware.
 - When you run it on your own computer, your password never leaves that computer. If you open an address run by someone else, do not type a password you really use. Try an example of a similar shape instead.
+
+## Development notes
+
+Problems we ran into, and how we solved them.
+
+**1. Random passwords were rated far too weak**
+
+- Problem: `zxcvbn` on its own rates a 20-character random password at about 317 years, far less than its real strength.
+- Cause: `zxcvbn` counts each character of a random part as 10 possibilities, whatever characters are used. A password drawn from 81 different characters was treated as if it were made of digits.
+- Fix: for random parts we now use `character types ^ length` with the real number of character types, and keep the `zxcvbn` estimate for words and patterns. The same password is now shown as about 468 quintillion years. A test (`test_random_part_uses_real_character_count`) keeps this from breaking again.
+
+**2. Korean passwords were rated too strong**
+
+- Problem: `dkssud12!` was given 41 days, although `dkssud` is the Korean word 안녕 ("hello") typed with the keyboard in English mode. This is a very common way to make a password in Korea.
+- Cause: the word lists in `zxcvbn` are English, so `dkssud` was counted as six random letters.
+- Fix: we added a list of common Korean words, both in Korean letters and as typed on an English keyboard, and pass it to `zxcvbn` as extra dictionary words. `dkssud12!` is now cracked in under a second.
+
+**3. HTTPS without asking the user to make a certificate**
+
+- Problem: a password site should not send passwords unencrypted, but making a certificate by hand is hard, and the usual tool (`openssl`) is not installed on Windows.
+- Fix: on the first run, Python creates a self-signed certificate itself with the `cryptography` library and stores it in `certs/`. The same code works on Windows, macOS and Linux. The private key is kept out of the repository with `.gitignore`.
+
+**4. From browser-only to a Python server**
+
+- The first version did every calculation in the browser. When we moved the calculation to Python, the password had to travel to the server, which is a real cost for a tool like this.
+- To limit that cost the server only listens on the local computer by default, stores and logs nothing, loads nothing from other sites, and limits the request rate. The README also tells visitors not to type a real password into a copy run by someone else.
+
+## Limitations and next steps
+
+**Limitations**
+
+- The times are estimates, not measurements. The fastest attack speed we use (10 billion guesses per second) is the figure `zxcvbn` uses for a fast hash; a large GPU cluster can be faster.
+- The site does not check real breach data. It only knows the lists built into `zxcvbn` (about 30,000 common passwords).
+- The Korean word list is small (28 entries). A Korean word that is not on the list is still treated as random letters.
+- Counting 2,350 possibilities for a Korean character is a rough figure.
+- `zxcvbn` reads at most 72 characters, so the rest of a longer password is treated as random.
+- The certificate is self-signed, so the browser shows a warning, and the server is the Flask development server. Both are fine on your own computer but not for a public service.
+- The rate limit is kept in memory, so it resets when the server restarts.
+
+**Next steps**
+
+- Check passwords against real breach data with the Have I Been Pwned range API, which only sends the first 5 characters of a hash.
+- Convert any Korean word to its English-keyboard form automatically, instead of keeping a fixed list.
+- Add a passphrase generator (several random words), which is easier to remember.
+- Do the checking in the browser again when the site is public, so a visitor's password never leaves their device.
+- Deploy with a production server and a real certificate.
+
+## What this project taught us
+
+- Password rules and password strength are different things. A password can pass every rule and still be among the first an attacker tries.
+- Length matters more than anything else. Each extra random character multiplies the work by the number of character types.
+- Random numbers for security must come from a cryptographic source (`secrets`), not from `random`.
+- A library's result should be checked, not just trusted. We only found the problem with random passwords because we tested a password whose real strength we could work out by hand.
+
+## References
+
+- Daniel Lowe Wheeler, "zxcvbn: Low-Budget Password Strength Estimation", USENIX Security 2016. https://www.usenix.org/conference/usenixsecurity16/technical-sessions/presentation/wheeler
+- zxcvbn (Dropbox), including the four attack speeds used on this site. https://github.com/dropbox/zxcvbn
+- zxcvbn-python, the Python version used here. https://github.com/dwolfhub/zxcvbn-python
+- Python `secrets` module documentation. https://docs.python.org/3/library/secrets.html
+- NIST Special Publication 800-63B, Digital Identity Guidelines (password length over composition rules). https://pages.nist.gov/800-63-3/sp800-63b.html
+- Flask documentation. https://flask.palletsprojects.com/
+
+<!--
+Sections to write yourself before using this as a portfolio (they are hidden on GitHub until you remove these comment marks):
+
+## My role
+- What I built myself:
+- What I decided, and why:
+- What was hardest for me:
+
+## Tools
+- State here how AI tools were used, following the rules of the school or company you apply to.
+-->
 
 ## Made by
 
