@@ -2,7 +2,7 @@
 
 [한국어 (Korean repository)](https://github.com/SLA3DP/password-site) | **English**
 
-A website that works out how long your current password would survive an attack, and then makes a safe one you can use instead. It is built with Python (Flask) and served over HTTPS. The site itself is in Korean.
+A website that works out how long your current password would survive an attack, and then makes a safe one you can use instead. It is built with Python (Flask) and served over HTTPS.
 
 | Weak password | Strong password | Generating a password |
 |---|---|---|
@@ -163,7 +163,6 @@ The Python server does all the calculation. The JavaScript in the browser only d
 | `static/app.js` | Sends requests to the server and shows the results |
 | `requirements.txt` | The Python packages it needs |
 | `run.bat`, `run.sh` | Start scripts for Windows and for macOS / Linux |
-| `index.html` | An early version that ran in the browser alone, without Python |
 
 ## Built with
 

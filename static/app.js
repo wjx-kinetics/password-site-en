@@ -1,4 +1,4 @@
-// 화면만 담당한다. 진단과 생성 계산은 모두 파이썬 서버(app.py)가 한다.
+// This file only draws the page. All checking and generating is done by the Python server (app.py).
 (function () {
   'use strict';
   var $ = function (id) { return document.getElementById(id); };
@@ -30,7 +30,7 @@
     toastTimer = setTimeout(function () { t.hidden = true; }, 1800);
   }
 
-  // ---------- 진단 ----------
+  // ---------- checking ----------
   var checkSeq = 0, checkTimer;
 
   function renderCheck(d) {
@@ -40,9 +40,8 @@
     var sample = $('sample');
     sample.textContent = '';
     if (d.sample) {
-      sample.appendChild(document.createTextNode('예시 '));
+      sample.appendChild(document.createTextNode('Result for the example '));
       sample.appendChild(el('code', null, d.sample));
-      sample.appendChild(document.createTextNode(' 의 결과예요'));
     }
 
     var clock = $('clock');
@@ -90,9 +89,9 @@
   function check() {
     var seq = ++checkSeq;
     post('/api/check', { password: $('pw').value }).then(function (d) {
-      if (seq === checkSeq) renderCheck(d);      // 늦게 온 예전 응답은 버린다
+      if (seq === checkSeq) renderCheck(d);      // drop older replies that arrive late
     }).catch(function () {
-      if (seq === checkSeq) $('pill').textContent = '서버에 연결할 수 없어요';
+      if (seq === checkSeq) $('pill').textContent = 'Cannot reach the server';
     });
   }
 
@@ -104,18 +103,18 @@
   $('toggle').addEventListener('click', function () {
     var show = $('pw').type === 'password';
     $('pw').type = show ? 'text' : 'password';
-    this.textContent = show ? '숨기기' : '보기';
+    this.textContent = show ? 'Hide' : 'Show';
     this.setAttribute('aria-pressed', String(show));
   });
 
-  // ---------- 생성 ----------
+  // ---------- generating ----------
   var current = '', genSeq = 0;
   var KINDS = ['lower', 'upper', 'digit', 'symbol'];
 
   function paintSlider() {
     var len = $('len');
     len.style.setProperty('--fill', ((len.value - len.min) / (len.max - len.min) * 100) + '%');
-    $('lenout').textContent = len.value + '자';
+    $('lenout').textContent = len.value + ' characters';
   }
 
   function generate() {
@@ -133,11 +132,10 @@
       });
       var stat = $('genstat');
       stat.textContent = '';
-      stat.appendChild(document.createTextNode('같은 공격으로 '));
       stat.appendChild(el('strong', null, d.time));
-      stat.appendChild(document.createTextNode(' · 무작위성 ' + d.bits + '비트'));
+      stat.appendChild(document.createTextNode(' against the same attack · ' + d.bits + ' bits of randomness'));
     }).catch(function () {
-      $('genstat').textContent = '서버에 연결할 수 없어요';
+      $('genstat').textContent = 'Cannot reach the server';
     });
   }
 
@@ -149,10 +147,10 @@
       var sel = window.getSelection();
       sel.removeAllRanges();
       sel.addRange(range);
-      toast('선택했어요. Ctrl/⌘+C로 복사하세요');
+      toast('Selected. Press Ctrl/⌘+C to copy');
     };
     try {
-      navigator.clipboard.writeText(current).then(function () { toast('복사했어요'); }, fallback);
+      navigator.clipboard.writeText(current).then(function () { toast('Copied'); }, fallback);
     } catch (e) { fallback(); }
   });
   $('regen').addEventListener('click', generate);

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""비밀번호 금고지기: 비밀번호 진단 + 생성 (파이썬 Flask, HTTPS)
+"""Password Vault Keeper: password checker + generator (Python Flask, HTTPS)
 
-실행:  python app.py              -> https://localhost:8443  (이 컴퓨터에서만 접속, 브라우저 자동 열림)
-       python app.py --lan        -> 같은 Wi-Fi의 다른 기기에서도 접속
-       python app.py --port 9000  -> 다른 포트 사용
-       python app.py --no-browser -> 브라우저를 자동으로 열지 않음
+Run:  python app.py              -> https://localhost:8443  (this computer only, opens the browser)
+      python app.py --lan        -> also reachable from other devices on the same Wi-Fi
+      python app.py --port 9000  -> use another port
+      python app.py --no-browser -> do not open the browser automatically
 """
 import argparse
 import datetime
@@ -26,12 +26,12 @@ from zxcvbn import zxcvbn
 BASE = Path(__file__).resolve().parent
 STATIC = BASE / "static"
 
-YEAR = 31_557_600          # 365.25일
-FAST = 1e10                # 유출 DB + 빠른 해시 + GPU: 초당 100억 회
+YEAR = 31_557_600          # 365.25 days in seconds
+FAST = 1e10                # leaked DB + fast hash + GPU: 10 billion guesses per second
 SAMPLE = "qwer1234"
 MAX_LEN = 128
 
-# 흔한 한국어 단어: 영문 자판(두벌식)으로 친 것과 한글 그대로
+# Common Korean words: typed on an English (QWERTY) keyboard, and in Korean letters
 KO_WORDS = [
     "dkssud", "dkssudgktpdy", "tkfkd", "tkfkdgo", "tkfkdgody", "qlalfqjsgh", "qlqjs", "gksrmf",
     "eogksalsrnr", "dnflskfk", "godqhr", "ghkdlxld", "djaak", "rkwhr", "clsrn",
@@ -40,18 +40,18 @@ KO_WORDS = [
 ]
 
 SCENARIOS = [
-    ("로그인 창에 직접 대입", "시도 횟수 제한이 있는 사이트", "시간당 100회", 100 / 3600),
-    ("로그인 창에 직접 대입", "횟수 제한이 없는 사이트", "초당 10회", 10.0),
-    ("유출된 DB 오프라인 공격", "느린 해시(bcrypt 등)로 저장", "초당 1만 회", 1e4),
-    ("유출된 DB 오프라인 공격", "빠른 해시(MD5, SHA-1)로 저장", "초당 100억 회", FAST),
+    ("Guessing at a login page", "Site limits the number of tries", "100 per hour", 100 / 3600),
+    ("Guessing at a login page", "Site with no limit", "10 per second", 10.0),
+    ("Leaked database, offline attack", "Stored with a slow hash (bcrypt)", "10,000 per second", 1e4),
+    ("Leaked database, offline attack", "Stored with a fast hash (MD5, SHA-1)", "10 billion per second", FAST),
 ]
 
 HANGUL = "가-힣ㄱ-ㅎㅏ-ㅣ"
 
 
-# ---------------------------------------------------------------- 진단
+# ---------------------------------------------------------------- checking
 def cardinality(pw: str) -> int:
-    """공격자가 한 글자마다 시도해야 하는 문자 종류 수."""
+    """How many different characters an attacker must try for each position."""
     c = 0
     if re.search(r"[a-z]", pw):
         c += 26
@@ -69,35 +69,36 @@ def cardinality(pw: str) -> int:
 def explain(m: dict):
     extra = ""
     if m.get("l33t"):
-        extra += " · a→@ 같은 글자 바꿔치기는 공격자도 기본으로 시도합니다"
+        extra += " · attackers also try swaps such as a→@ by default"
     if m.get("reversed"):
-        extra += " · 뒤집어 써도 마찬가지입니다"
+        extra += " · writing it backwards does not help"
     pattern, token = m["pattern"], m["token"]
     if pattern == "dictionary":
         name = m.get("dictionary_name", "")
         if name == "passwords":
-            return f"유출 목록에 자주 나오는 비밀번호 ({m.get('rank')}위){extra}", token
+            return f"Common in leaked password lists (rank {m.get('rank')}){extra}", token
         if name == "user_inputs":
-            return f"흔한 한국어 단어 (한글 그대로 또는 영문 자판으로 친 것){extra}", token
+            return f"Common Korean word (in Korean letters or typed on an English keyboard){extra}", token
         if "names" in name:
-            return f"흔한 이름{extra}", token
-        return f"사전에 있는 영어 단어{extra}", token
+            return f"Common name{extra}", token
+        return f"Dictionary word{extra}", token
     return {
-        "spatial": ("키보드에서 나란히 붙은 키 배열", token),
-        "repeat": ("같은 글자나 묶음의 반복", token),
-        "sequence": ("순서대로 이어지는 글자나 숫자", token),
-        "regex": ("연도로 보이는 숫자", token),
-        "date": ("날짜로 보이는 숫자", token),
+        "spatial": ("Keys next to each other on the keyboard", token),
+        "repeat": ("Repeated characters or groups", token),
+        "sequence": ("Characters or numbers in sequence", token),
+        "regex": ("Looks like a year", token),
+        "date": ("Looks like a date", token),
     }.get(pattern)
 
 
 def analyze(pw: str):
-    """(추정 대입 횟수, 이유 목록)을 돌려준다."""
+    """Return (estimated number of guesses, list of reasons)."""
     card = cardinality(pw)
-    head, tail = pw[:72], pw[72:]          # zxcvbn은 72자까지만 받는다
+    head, tail = pw[:72], pw[72:]          # zxcvbn accepts at most 72 characters
     result = zxcvbn(head, user_inputs=KO_WORDS)
 
-    # zxcvbn은 무작위 구간을 글자당 10가지로만 치므로 실제 문자 종류 수로 다시 계산한다.
+    # zxcvbn counts a random character as only 10 possibilities,
+    # so recalculate those parts with the real number of character types.
     product, reasons = 1, []
     for m in result["sequence"]:
         if m["pattern"] == "bruteforce":
@@ -111,13 +112,13 @@ def analyze(pw: str):
     guesses *= card ** len(tail)
 
     if len(pw) < 12:
-        reasons.append({"text": f"길이가 {len(pw)}자로 짧습니다. 12자 이상을 권장합니다", "token": None})
+        reasons.append({"text": f"Only {len(pw)} characters long. 12 or more is recommended", "token": None})
     if not reasons:
-        reasons.append({"text": "알려진 단어나 패턴이 발견되지 않았습니다", "token": None})
+        reasons.append({"text": "No known word or pattern was found", "token": None})
     return guesses, reasons
 
 
-# ---------------------------------------------------------------- 시간 표시
+# ---------------------------------------------------------------- showing time
 def seconds(guesses: int, rate: float) -> float:
     try:
         return float(guesses) / rate
@@ -127,13 +128,14 @@ def seconds(guesses: int, rate: float) -> float:
 
 def big_years(y: float) -> str:
     if math.isinf(y) or y >= 1e24:
-        return "우주 나이의 수조 배 이상"
-    for unit, name in ((1e20, "해"), (1e16, "경"), (1e12, "조"), (1e8, "억"), (1e4, "만")):
+        return "Trillions of times the age of the universe"
+    for unit, name in ((1e21, "sextillion"), (1e18, "quintillion"), (1e15, "quadrillion"),
+                       (1e12, "trillion"), (1e9, "billion"), (1e6, "million"), (1e3, "thousand")):
         if y >= unit:
             v = y / unit
             num = f"{v:.1f}".rstrip("0").rstrip(".") if v < 100 else f"{round(v):,}"
-            return f"약 {num}{name} 년"
-    return f"{round(y):,}년"
+            return f"About {num} {name} years"
+    return f"{round(y):,} years"
 
 
 def split(s: float):
@@ -144,52 +146,57 @@ def split(s: float):
     return [int(y), int(d), int(h), int(m), int(s)]
 
 
-UNITS = ["년", "일", "시간", "분", "초"]
+UNITS = ["year", "day", "hour", "minute", "second"]
+CLOCK_UNITS = ["years", "days", "hours", "min", "sec"]
 
 
 def is_huge(s: float) -> bool:
     return math.isinf(s) or s / YEAR >= 10000
 
 
+def plural(n: int, unit: str) -> str:
+    return f"{n:,} {unit}" + ("" if n == 1 else "s")
+
+
 def time_text(s: float) -> str:
     if s < 1:
-        return "1초 미만"
+        return "Under 1 second"
     if is_huge(s):
         return big_years(s / YEAR)
     parts = split(s)
     i = next(k for k, v in enumerate(parts) if v > 0)
-    out = [f"{parts[i]:,}{UNITS[i]}"]
+    out = [plural(parts[i], UNITS[i])]
     if i + 1 < 5 and parts[i + 1] > 0:
-        out.append(f"{parts[i + 1]}{UNITS[i + 1]}")
+        out.append(plural(parts[i + 1], UNITS[i + 1]))
     return " ".join(out)
 
 
 def clock(s: float) -> dict:
     if s < 1:
-        return {"single": "1초도 안 걸려요"}
+        return {"single": "Less than 1 second"}
     if is_huge(s):
         return {"single": big_years(s / YEAR)}
     cells, leading = [], True
     for i, v in enumerate(split(s)):
         if v > 0:
             leading = False
-        cells.append({"value": f"{v:02d}" if i >= 2 else str(v), "unit": UNITS[i], "zero": leading})
+        cells.append({"value": f"{v:02d}" if i >= 2 else str(v), "unit": CLOCK_UNITS[i], "zero": leading})
     return {"cells": cells}
 
 
 def verdict(s: float):
     if s < 60:
-        return "crit", "즉시 뚫림"
+        return "crit", "Cracked instantly"
     if s < 86400:
-        return "crit", "매우 약함"
+        return "crit", "Very weak"
     if s < YEAR:
-        return "warn", "약함"
+        return "warn", "Weak"
     if s < YEAR * 100:
-        return "warn", "보통"
-    return "ok", "강함"
+        return "warn", "Fair"
+    return "ok", "Strong"
 
 
-# ---------------------------------------------------------------- 생성
+# ---------------------------------------------------------------- generating
 SETS = {
     "lower": "abcdefghijklmnopqrstuvwxyz",
     "upper": "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
@@ -200,7 +207,7 @@ AMBIGUOUS = set("0OoIl1|")
 
 
 def generate(length: int, kinds: list, no_ambiguous: bool):
-    """secrets 모듈(운영체제 암호학적 난수)로 비밀번호를 만든다."""
+    """Make a password with the secrets module (cryptographic randomness from the OS)."""
     groups = []
     for kind in ("lower", "upper", "digit", "symbol"):
         if kind in kinds:
@@ -213,16 +220,15 @@ def generate(length: int, kinds: list, no_ambiguous: bool):
     pool = "".join(groups)
     while True:
         pw = "".join(secrets.choice(pool) for _ in range(length))
-        if all(any(ch in g for ch in pw) for g in groups):   # 고른 종류가 모두 들어갈 때까지
+        if all(any(ch in g for ch in pw) for g in groups):   # until every chosen type appears
             return pw, len(pool)
 
 
-# ---------------------------------------------------------------- 웹 서버
+# ---------------------------------------------------------------- web server
 app = Flask(__name__, static_folder=None)
 app.config["MAX_CONTENT_LENGTH"] = 4096
 
-
-# 공개했을 때를 대비한 간단한 요청 제한: 한 사람당 10초에 150번까지
+# A simple rate limit in case the site is made public: 150 requests per 10 seconds per person
 _hits = defaultdict(deque)
 
 
@@ -238,7 +244,7 @@ def rate_limit():
     while q and now - q[0] > 10:
         q.popleft()
     if len(q) >= 150:
-        return jsonify(error="요청이 너무 많아요. 잠시 후 다시 시도하세요."), 429
+        return jsonify(error="Too many requests. Try again in a moment."), 429
     q.append(now)
     return None
 
@@ -267,7 +273,7 @@ def api_check():
     data = request.get_json(silent=True) or {}
     typed = data.get("password")
     typed = typed[:MAX_LEN] if isinstance(typed, str) else ""
-    pw = typed or SAMPLE                     # 비어 있으면 예시를 보여 준다
+    pw = typed or SAMPLE                     # show an example when nothing is typed
     guesses, reasons = analyze(pw)
     fast = seconds(guesses, FAST)
     level, label = verdict(fast)
@@ -304,18 +310,18 @@ def api_generate():
     )
 
 
-# ---------------------------------------------------------------- HTTPS 인증서
+# ---------------------------------------------------------------- HTTPS certificate
 def lan_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("10.255.255.255", 1))      # 실제로 패킷을 보내지는 않는다
+            s.connect(("10.255.255.255", 1))      # no packet is actually sent
             return s.getsockname()[0]
     except OSError:
         return None
 
 
 def ensure_cert():
-    """처음 실행할 때 자체 서명 인증서를 만들어 certs/ 에 보관한다."""
+    """Create a self-signed certificate on the first run and keep it in certs/."""
     from cryptography import x509
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
@@ -361,24 +367,21 @@ def ensure_cert():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="비밀번호 금고지기 HTTPS 서버")
+    parser = argparse.ArgumentParser(description="Password Vault Keeper HTTPS server")
     parser.add_argument("--port", type=int, default=8443)
-    parser.add_argument("--lan", action="store_true", help="같은 네트워크의 다른 기기에서도 접속 허용")
-    parser.add_argument("--no-browser", action="store_true", help="브라우저를 자동으로 열지 않음")
+    parser.add_argument("--lan", action="store_true", help="allow other devices on the same network to connect")
+    parser.add_argument("--no-browser", action="store_true", help="do not open the browser automatically")
     args = parser.parse_args()
 
-    try:                                   # 한글을 못 찍는 콘솔에서도 멈추지 않게
-        sys.stdout.reconfigure(errors="replace")
-    except (AttributeError, ValueError):
-        pass
     if not args.no_browser:
         threading.Timer(1.5, webbrowser.open, [f"https://localhost:{args.port}"]).start()
 
     host = "0.0.0.0" if args.lan else "127.0.0.1"
-    print(f"\n  비밀번호 금고지기  ->  https://localhost:{args.port}")
+    print(f"\n  Password Vault Keeper  ->  https://localhost:{args.port}")
     if args.lan and lan_ip():
-        print(f"  다른 기기에서     ->  https://{lan_ip()}:{args.port}")
-    print("  (자체 서명 인증서라 처음 열 때 브라우저 경고가 뜹니다. '고급 > 계속'을 누르세요)\n")
+        print(f"  From other devices     ->  https://{lan_ip()}:{args.port}")
+    print("  (The certificate is self-signed, so the browser warns the first time."
+          " Choose 'Advanced > Proceed'.)\n")
     app.run(host=host, port=args.port, ssl_context=ensure_cert())
 
 
